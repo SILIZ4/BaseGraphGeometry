@@ -9,16 +9,27 @@
 namespace py = pybind11;
 using namespace BaseGraph;
 
+
 template <typename EdgeLabel>
 void declareMetrics(py::module& m) {
-    m.def("get_greedy_routing_scores_s1", [&](
+    m.def("get_greedy_stability", [&](
+            const LabeledUndirectedGraph<EdgeLabel> &graph,
+            const std::vector<std::vector<double>> &positions) {
+        return geometry::getGreedyStability(graph, positions, geometry::distanceH2);
+    });
+    m.def("get_greedy_routing_scores", [&](
                 const LabeledUndirectedGraph<EdgeLabel> &graph,
                 const std::vector<std::vector<double>> &positions) {
             return geometry::getGreedyRoutingScores(graph, positions, geometry::distanceH2);
         });
+    m.def("get_hierarchy_levels", [&](
+                const LabeledUndirectedGraph<EdgeLabel> &graph,
+                const std::vector<double> &angles,
+                const std::vector<double> &radii) {
+            return geometry::getHierarchyLevel(graph, angles, radii);
+        });
 }
 
-// Metrics that aren't validated with Networkx are tagged with /**/
 PYBIND11_MODULE(_geometry, m) {
     // Required Python import the module to work
     py::module_::import("basegraph");

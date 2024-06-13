@@ -12,8 +12,40 @@ namespace BaseGraph {
 namespace geometry {
 
 
-inline double distanceH2(std::vector<double> x1, std::vector<double> x2) {
-    return std::acosh(std::cosh(x1[1])*std::cosh(x2[1]) - std::sinh(x1[1])*std::sinh(x2[1])*std::cos(x1[0]-x2[0]));
+inline double distanceH2(std::vector<double> x, std::vector<double> y) {
+    double arg = std::cosh(x[0])*std::cosh(y[0]) - std::sinh(x[0])*std::sinh(y[0])*std::cos(x[1]-y[1]);
+    if (arg <= 1)
+        return 0;
+    return std::acosh(arg);
+}
+
+inline double distanceS1(double x1, double x2) {
+    return M_PI - std::abs(M_PI - std::abs(x1 - x2));
+}
+
+template <typename EdgeLabel>
+double getHierarchyLevel(
+        const LabeledUndirectedGraph<EdgeLabel> &graph,
+        const std::vector<double> &radii,
+        const std::vector<double> &angles) {
+
+    double h = 0;
+    auto n = graph.getSize();
+    for (auto u: graph) {
+        double sumSeparation = 0;
+        double outerNeighbours = 0;
+        for (auto v: graph.getNeighbours(u)) {
+            if (radii[v] > radii[u]) {
+                sumSeparation += distanceS1(angles[u], angles[v]);
+                outerNeighbours++;
+            }
+        }
+        if (outerNeighbours == 0)
+            n--;
+        else
+            h += 1-2*(sumSeparation/outerNeighbours)/M_PI;
+    }
+    return h/n;
 }
 
 template <typename EdgeLabel>
@@ -53,7 +85,9 @@ std::unordered_map<std::string, double> getGreedyRoutingScores(
     auto n = graph.getSize();
 
     for (auto source : graph) {
-        for (auto destination = source + 1; destination < n; destination++) {
+        for (auto destination : graph) {
+            if (source == destination)
+                continue;
             std::vector<bool> vertexExplored(n, false);
             double greedyLength = 0;
             size_t greedyHops = 0;
@@ -91,10 +125,27 @@ std::unordered_map<std::string, double> getGreedyRoutingScores(
         scores["stretch"] /= scores["successful"];
         scores["hyperstretch greedy"] /= scores["successful"];
         scores["hyperstretch original"] /= scores["successful"];
-        scores["successful"] = 2 * scores["successful"] / (n * (n - 1));
+        scores["successful"] = scores["successful"] / (n * (n - 1));
     }
     return scores;
 }
+
+
+template <typename EdgeLabel>
+std::vector<double>
+getGreedyStability(const LabeledUndirectedGraph<EdgeLabel> &graph,
+                   const std::vector<std::vector<double>> &positions,
+                   const std::function<double(const std::vector<double> &, const std::vector<double> &)> &dist) {
+
+    std::vector<double> grSuccessRate = std::vector(graph.getSize(), 0.);
+    for (auto v: graph) {
+        auto graphWithoutV = graph;
+        graphWithoutV.removeVertexFromEdgeList(v);
+        grSuccessRate[v] = getGreedyRoutingScores(graphWithoutV, positions, dist)["successful"];
+    }
+    return grSuccessRate;
+}
+
 
 } // namespace geometry
 } // namespace BaseGraph
